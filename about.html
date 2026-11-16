@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About - Class Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>About Class Board</h1>
+    <p>A simple, private board to keep uni and life under control.</p>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">What is it?</h2>
+    <p>Class Board helps a student keep track of assignments, quizzes, projects and everything else, while also making time for life outside uni. There is no account and no login. Open it and start using it.</p>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">The six pages</h2>
+    <ul class="about-list">
+      <li><b>Home</b> - add, edit, tick off and delete your tasks.</li>
+      <li><b>Calendar</b> - the same tasks, laid out by deadline across the month.</li>
+      <li><b>My Why</b> - your own reasons for the work you do, to read when motivation is low.</li>
+      <li><b>Planner</b> - a weekly plan with uni and life side by side.</li>
+      <li><b>Focus</b> - a Pomodoro timer that counts your focused sessions.</li>
+      <li><b>About</b> - this page.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">Where is my data?</h2>
+    <p>Everything is saved inside your own browser (using <code>localStorage</code>). Nothing is sent to any server, so only you can see it. The flip side: if you clear your browser data or switch to another browser or device, your tasks will not follow you.</p>
+    <button class="btn danger" id="clearBtn" type="button">Erase all my data</button>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">Built with</h2>
+    <p>Plain HTML, CSS and JavaScript. No frameworks and no build step. The Bricolage Grotesque font comes from Google Fonts.</p>
+  </div>
+</main>
+
+<script src="common.js"></script>
+<script>
+// ===== About page: just one button that wipes everything saved by this site =====
+document.getElementById("clearBtn").addEventListener("click", function () {
+  if (confirm("This deletes all tasks, reasons, planner items and focus counts. Continue?")) {
+    ["tasks", "reasons", "planner", "focusSessions"].forEach(function (key) {
+      localStorage.removeItem(key);
+    });
+    alert("All data erased.");
+  }
+});
+</script>
+</body>
+</html>

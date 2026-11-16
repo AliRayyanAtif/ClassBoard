@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planner - Class Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Weekly Planner</h1>
+    <p>Uni on the left, life on the right. See both sides of every day so neither one gets squeezed out.</p>
+  </div>
+
+  <form class="card" id="planForm">
+    <div class="row">
+      <div>
+        <label for="planDay">Day</label>
+        <select id="planDay">
+          <option>Mon</option><option>Tue</option><option>Wed</option><option>Thu</option>
+          <option>Fri</option><option>Sat</option><option>Sun</option>
+        </select>
+      </div>
+      <div>
+        <label for="planSide">Side</label>
+        <select id="planSide">
+          <option value="uni">Uni (classes, study)</option>
+          <option value="life">Life (gym, family, rest)</option>
+        </select>
+      </div>
+    </div>
+    <label for="planText">What is the plan?</label>
+    <input id="planText" maxlength="80" required placeholder="e.g. Data Structures lab at 10am">
+    <button class="btn" type="submit" style="margin-top:14px">Add to planner</button>
+  </form>
+
+  <div class="week" id="week"></div>
+</main>
+
+<script src="common.js"></script>
+<script>
+// ===== Planner page: every item has a day and a side ("uni" or "life") =====
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+let plan_items = loadData("planner", []);   // each item: { id, day, side, text, done }
+
+function $(id) { return document.getElementById(id); }
+
+// builds the little list for one side of one day
+function sideHtml(day, side, title) {
+  const mine = plan_items.filter(p => p.day === day && p.side === side);
+  const rows = mine.map(function (p) {
+    return '<div class="item' + (p.done ? " done" : "") + '">' +
+      '<label><input type="checkbox" data-done="' + p.id + '"' + (p.done ? " checked" : "") + "><span>" + esc(p.text) + "</span></label>" +
+      '<button data-del="' + p.id + '" aria-label="Remove">x</button></div>';
+  }).join("");
+  return '<div class="side ' + side + '"><h4>' + title + "</h4>" + rows + "</div>";
+}
+
+function render() {
+  // JS says Sunday = 0, so we shift it to match our Mon-first list
+  const todayName = DAYS[(new Date().getDay() + 6) % 7];
+
+  $("week").innerHTML = DAYS.map(function (day) {
+    return '<div class="day' + (day === todayName ? " today" : "") + '">' +
+      "<h3>" + day + (day === todayName ? " (today)" : "") + "</h3>" +
+      '<div class="sides">' + sideHtml(day, "uni", "Uni") + sideHtml(day, "life", "Life") + "</div></div>";
+  }).join("");
+}
+
+function update() {
+  saveData("planner", plan_items);
+  render();
+}
+
+$("planForm").addEventListener("submit", function (e) {
+  e.preventDefault();
+  plan_items.push({
+    id: makeId(),
+    day: $("planDay").value,
+    side: $("planSide").value,
+    text: $("planText").value.trim(),
+    done: false
+  });
+  $("planText").value = "";
+  update();
+});
+
+$("week").addEventListener("change", function (e) {
+  const box = e.target.closest("[data-done]");
+  if (!box) return;
+  plan_items.find(p => p.id === box.dataset.done).done = box.checked;
+  update();
+});
+
+$("week").addEventListener("click", function (e) {
+  const btn = e.target.closest("[data-del]");
+  if (!btn) return;
+  plan_items = plan_items.filter(p => p.id !== btn.dataset.del);
+  update();
+});
+
+render();
+</script>
+</body>
+</html>

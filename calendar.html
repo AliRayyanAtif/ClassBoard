@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calendar - Class Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Calendar</h1>
+    <p>See every deadline laid out across the month. Tap a day to see its tasks.</p>
+  </div>
+
+  <div class="card">
+    <div class="cal-head">
+      <button class="btn ghost" id="prevBtn" type="button">&larr; Prev</button>
+      <h2 id="monthTitle"></h2>
+      <button class="btn ghost" id="nextBtn" type="button">Next &rarr;</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+
+    <!-- colour key -->
+    <div class="legend">
+      <span><i class="dot Assignment"></i>Assignment</span>
+      <span><i class="dot Quiz"></i>Quiz</span>
+      <span><i class="dot Homework"></i>Homework</span>
+      <span><i class="dot Presentation"></i>Presentation</span>
+      <span><i class="dot Project"></i>Project</span>
+      <span><i class="dot Note"></i>Note</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 id="dayTitle" style="margin:0 0 6px;font-size:1.15rem"></h2>
+    <div id="dayList"></div>
+  </div>
+</main>
+
+<script src="common.js"></script>
+<script>
+// ===== Calendar page: shows the same tasks as the Home page =====
+let tasks = loadData("tasks", []);
+let viewDate = new Date();          // the month we are looking at
+viewDate.setDate(1);                // always the 1st so changing month is easy
+let selectedKey = toKey(new Date()); // the day that is clicked (starts as today)
+
+function $(id) { return document.getElementById(id); }
+
+function drawCalendar() {
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  $("monthTitle").textContent = viewDate.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+  // week starts on Monday: how many empty boxes come before the 1st?
+  const blanks = (new Date(year, month, 1).getDay() + 6) % 7;
+  const total_days = new Date(year, month + 1, 0).getDate();
+  const todayKey = toKey(new Date());
+
+  let html = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(n => '<div class="cal-name">' + n + "</div>").join("");
+
+  for (let i = 0; i < blanks; i++) html += '<div class="cal-cell blank"></div>';
+
+  for (let d = 1; d <= total_days; d++) {
+    const key = toKey(new Date(year, month, d));
+    const dayTasks = tasks.filter(t => t.deadline === key);
+    const dots = dayTasks.map(t => '<i class="dot ' + t.type + '"></i>').join("");
+    const classes = "cal-cell" + (key === todayKey ? " today" : "") + (key === selectedKey ? " selected" : "");
+    html += '<button class="' + classes + '" data-key="' + key + '"><b>' + d + '</b><div class="dots">' + dots + "</div></button>";
+  }
+  $("calGrid").innerHTML = html;
+
+  drawDay();
+}
+
+// the list of tasks under the calendar for the clicked day
+function drawDay() {
+  $("dayTitle").textContent = parseKey(selectedKey).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+  const dayTasks = tasks.filter(t => t.deadline === selectedKey);
+
+  if (dayTasks.length === 0) {
+    $("dayList").innerHTML = '<div class="empty">No deadlines on this day.</div>';
+    return;
+  }
+  $("dayList").innerHTML = dayTasks.map(function (t) {
+    return '<article class="post ' + t.type + (t.done ? " done" : "") + '">' +
+      '<label class="tick"><input type="checkbox" data-done="' + t.id + '"' + (t.done ? " checked" : "") + ">" +
+      '<span><span class="type">' + t.type + "</span><h3>" + esc(t.title) + "</h3></span></label>" +
+      (t.details ? "<p>" + esc(t.details) + "</p>" : "") + "</article>";
+  }).join("");
+}
+
+// previous / next month buttons
+$("prevBtn").addEventListener("click", function () { viewDate.setMonth(viewDate.getMonth() - 1); drawCalendar(); });
+$("nextBtn").addEventListener("click", function () { viewDate.setMonth(viewDate.getMonth() + 1); drawCalendar(); });
+
+// clicking a day
+$("calGrid").addEventListener("click", function (e) {
+  const cell = e.target.closest("[data-key]");
+  if (!cell) return;
+  selectedKey = cell.dataset.key;
+  drawCalendar();
+});
+
+// ticking a task as done from here also saves it
+$("dayList").addEventListener("change", function (e) {
+  const box = e.target.closest("[data-done]");
+  if (!box) return;
+  tasks.find(t => t.id === box.dataset.done).done = box.checked;
+  saveData("tasks", tasks);
+  drawCalendar();
+});
+
+drawCalendar();
+</script>
+</body>
+</html>

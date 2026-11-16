@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home - Class Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Your tasks</h1>
+    <p>Everything you need to get done, in one place.</p>
+  </div>
+
+  <!-- three little numbers at the top -->
+  <div class="stats">
+    <div class="stat"><b id="statOpen">0</b><span>To do</span></div>
+    <div class="stat"><b id="statSoon">0</b><span>Due in 3 days</span></div>
+    <div class="stat"><b id="statDone">0</b><span>Done</span></div>
+  </div>
+
+  <!-- form to add or edit a task -->
+  <details class="add" id="addBox" style="margin-top:14px">
+    <summary id="addSummary">+ Add a new task</summary>
+    <form id="addForm">
+      <div class="row">
+        <div>
+          <label for="type">Type</label>
+          <select id="type">
+            <option>Assignment</option><option>Quiz</option><option>Homework</option>
+            <option>Presentation</option><option>Project</option><option>Note</option>
+          </select>
+        </div>
+        <div>
+          <label for="deadline">Deadline</label>
+          <input id="deadline" type="date">
+          <div class="hint">Optional. Leave empty for notes.</div>
+        </div>
+      </div>
+      <label for="title">Title</label>
+      <input id="title" maxlength="120" required placeholder="e.g. Chapter 5 worksheet">
+      <label for="details">Details</label>
+      <textarea id="details" maxlength="1500" placeholder="Pages, topics, links, anything useful"></textarea>
+      <button class="btn" id="addBtn" type="submit">Save task</button>
+      <button class="btn ghost hidden" id="cancelBtn" type="button">Cancel edit</button>
+    </form>
+  </details>
+
+  <div class="filters" id="filters"></div>
+  <div id="list"></div>
+</main>
+
+<script src="common.js"></script>
+<script>
+// ===== Home page: add, edit, tick off and delete tasks =====
+const TYPES = ["All", "Assignment", "Quiz", "Homework", "Presentation", "Project", "Note"];
+
+let tasks = loadData("tasks", []);   // all tasks, loaded from the browser
+let filterType = "All";              // which chip is selected
+let edit_id = null;                  // id of the task being edited (null = adding a new one)
+
+function $(id) { return document.getElementById(id); }
+
+// ---- draw the stats, the chips and the task list ----
+function render() {
+  // stats
+  $("statOpen").textContent = tasks.filter(t => !t.done).length;
+  $("statDone").textContent = tasks.filter(t => t.done).length;
+  $("statSoon").textContent = tasks.filter(function (t) {
+    const n = daysLeft(t.deadline);
+    return !t.done && n !== null && n >= 0 && n <= 3;
+  }).length;
+
+  // filter chips
+  $("filters").innerHTML = TYPES.map(function (t) {
+    return '<button class="chip" data-t="' + t + '" aria-pressed="' + (t === filterType) + '">' +
+      (t === "All" ? "All" : t + "s") + "</button>";
+  }).join("");
+
+  // only show the selected type
+  const shown = tasks.filter(t => filterType === "All" || t.type === filterType);
+
+  // sort: not-done first, then earliest deadline, tasks without a deadline last
+  shown.sort(function (a, b) {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    const da = a.deadline || "9999-12-31";
+    const db = b.deadline || "9999-12-31";
+    return da.localeCompare(db);
+  });
+
+  if (shown.length === 0) {
+    $("list").innerHTML = '<div class="empty">Nothing here yet. Tap "+ Add a new task" to start.</div>';
+    return;
+  }
+
+  $("list").innerHTML = shown.map(function (t) {
+    const due = t.deadline ? dueLabel(t.deadline) : null;
+    return '<article class="post ' + t.type + (t.done ? " done" : "") + '">' +
+      '<div class="top">' +
+        '<label class="tick"><input type="checkbox" data-done="' + t.id + '"' + (t.done ? " checked" : "") + '>' +
+        '<span><span class="type">' + t.type + "</span><h3>" + esc(t.title) + "</h3></span></label>" +
+        '<div class="actions"><button class="edit" data-edit="' + t.id + '">Edit</button>' +
+        '<button class="del" data-del="' + t.id + '">Delete</button></div>' +
+      "</div>" +
+      (t.details ? "<p>" + esc(t.details) + "</p>" : "") +
+      (due ? '<div class="due ' + due.cls + '">' + due.text + "</div>" : "") +
+    "</article>";
+  }).join("");
+}
+
+// ---- save + redraw (used after every change) ----
+function update() {
+  saveData("tasks", tasks);
+  render();
+}
+
+// ---- put the form back to "add" mode ----
+function endEdit() {
+  edit_id = null;
+  $("addForm").reset();
+  $("addSummary").textContent = "+ Add a new task";
+  $("addBtn").textContent = "Save task";
+  $("cancelBtn").classList.add("hidden");
+}
+
+// ---- form submit: add a new task OR save changes ----
+$("addForm").addEventListener("submit", function (e) {
+  e.preventDefault();
+  const data = {
+    type: $("type").value,
+    title: $("title").value.trim(),
+    details: $("details").value.trim(),
+    deadline: $("deadline").value
+  };
+  if (edit_id) {
+    const task = tasks.find(t => t.id === edit_id);
+    Object.assign(task, data);                       // copy new values onto the old task
+  } else {
+    tasks.push({ id: makeId(), done: false, ...data });
+  }
+  endEdit();
+  $("addBox").open = false;
+  update();
+});
+
+$("cancelBtn").addEventListener("click", endEdit);
+
+// ---- clicks on the chips ----
+$("filters").addEventListener("click", function (e) {
+  const chip = e.target.closest("[data-t]");
+  if (!chip) return;
+  filterType = chip.dataset.t;
+  render();
+});
+
+// ---- ticking a task as done ----
+$("list").addEventListener("change", function (e) {
+  const box = e.target.closest("[data-done]");
+  if (!box) return;
+  tasks.find(t => t.id === box.dataset.done).done = box.checked;
+  update();
+});
+
+// ---- Edit and Delete buttons ----
+$("list").addEventListener("click", function (e) {
+  const editBtn = e.target.closest("[data-edit]");
+  const delBtn = e.target.closest("[data-del]");
+
+  if (editBtn) {
+    const task = tasks.find(t => t.id === editBtn.dataset.edit);
+    edit_id = task.id;
+    $("type").value = task.type;
+    $("deadline").value = task.deadline || "";
+    $("title").value = task.title;
+    $("details").value = task.details || "";
+    $("addSummary").textContent = "Editing task";
+    $("addBtn").textContent = "Save changes";
+    $("cancelBtn").classList.remove("hidden");
+    $("addBox").open = true;
+    $("addBox").scrollIntoView({ behavior: "smooth" });
+  }
+
+  if (delBtn && confirm("Delete this task?")) {
+    tasks = tasks.filter(t => t.id !== delBtn.dataset.del);
+    update();
+  }
+});
+
+render();
+</script>
+</body>
+</html>

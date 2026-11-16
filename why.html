@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Why - Class Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>My Why</h1>
+    <p>On the days motivation disappears, come back here and remember why you started.</p>
+  </div>
+
+  <!-- one random reason shown big -->
+  <div class="big-reason">
+    <small>Remember</small>
+    <p id="randomReason">Add your first reason below.</p>
+    <button class="btn" id="anotherBtn" type="button">Show another</button>
+  </div>
+
+  <!-- add a reason -->
+  <form class="card" id="reasonForm">
+    <label for="reasonText">Why are you doing what you do?</label>
+    <textarea id="reasonText" maxlength="300" required placeholder="e.g. I want to make my family proud"></textarea>
+    <button class="btn" type="submit" style="margin-top:12px">Add reason</button>
+  </form>
+
+  <div id="reasonList"></div>
+</main>
+
+<script src="common.js"></script>
+<script>
+// ===== My Why page: a list of reasons that keep you going =====
+let reasons = loadData("reasons", []);   // each reason: { id, text }
+
+function $(id) { return document.getElementById(id); }
+
+// pick one reason at random and show it big at the top
+function showRandom() {
+  if (reasons.length === 0) {
+    $("randomReason").textContent = "Add your first reason below.";
+    return;
+  }
+  const pick = reasons[Math.floor(Math.random() * reasons.length)];
+  $("randomReason").textContent = pick.text;
+}
+
+// draw the full list of reasons
+function render() {
+  if (reasons.length === 0) {
+    $("reasonList").innerHTML = '<div class="empty">No reasons yet. Write the first one above.</div>';
+  } else {
+    $("reasonList").innerHTML = reasons.map(function (r) {
+      return '<div class="reason"><span>' + esc(r.text) + '</span>' +
+        '<button class="btn ghost" data-del="' + r.id + '" type="button">Remove</button></div>';
+    }).join("");
+  }
+  showRandom();
+}
+
+$("reasonForm").addEventListener("submit", function (e) {
+  e.preventDefault();
+  reasons.unshift({ id: makeId(), text: $("reasonText").value.trim() });   // newest on top
+  saveData("reasons", reasons);
+  $("reasonForm").reset();
+  render();
+});
+
+$("reasonList").addEventListener("click", function (e) {
+  const btn = e.target.closest("[data-del]");
+  if (!btn) return;
+  reasons = reasons.filter(r => r.id !== btn.dataset.del);
+  saveData("reasons", reasons);
+  render();
+});
+
+$("anotherBtn").addEventListener("click", showRandom);
+
+render();
+</script>
+</body>
+</html>

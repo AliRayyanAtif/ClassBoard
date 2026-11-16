@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focus - Class Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Focus Timer</h1>
+    <p>Work in short, focused bursts with breaks in between (the Pomodoro method).</p>
+  </div>
+
+  <div class="card timer">
+    <div class="modes">
+      <button class="chip" data-mode="focus" type="button">Focus 25</button>
+      <button class="chip" data-mode="short" type="button">Short break 5</button>
+      <button class="chip" data-mode="long" type="button">Long break 15</button>
+    </div>
+
+    <div class="clock" id="clock">25:00</div>
+    <div class="bar"><div id="barFill"></div></div>
+    <p id="status" class="hint" style="font-size:.95rem">Ready when you are.</p>
+
+    <button class="btn" id="startBtn" type="button">Start</button>
+    <button class="btn ghost" id="resetBtn" type="button">Reset</button>
+  </div>
+
+  <div class="stats" style="grid-template-columns:1fr">
+    <div class="stat"><b id="sessionCount">0</b><span>Focus sessions finished today</span></div>
+  </div>
+</main>
+
+<script src="common.js"></script>
+<script>
+// ===== Focus page: a countdown timer that counts finished sessions per day =====
+const MODES = { focus: 25, short: 5, long: 15 };   // minutes for each mode
+
+let mode = "focus";
+let seconds_left = MODES.focus * 60;
+let timerId = null;                  // holds the running timer (null = stopped)
+
+function $(id) { return document.getElementById(id); }
+
+// how many focus sessions were finished today (saved as { "2026-11-16": 3 })
+function todayCount() {
+  const all = loadData("focusSessions", {});
+  return all[toKey(new Date())] || 0;
+}
+
+function addSession() {
+  const all = loadData("focusSessions", {});
+  const key = toKey(new Date());
+  all[key] = (all[key] || 0) + 1;
+  saveData("focusSessions", all);
+}
+
+// shows the time as mm:ss and moves the progress bar
+function drawClock() {
+  const mins = String(Math.floor(seconds_left / 60)).padStart(2, "0");
+  const secs = String(seconds_left % 60).padStart(2, "0");
+  $("clock").textContent = mins + ":" + secs;
+  document.title = mins + ":" + secs + " - Focus";
+
+  const total = MODES[mode] * 60;
+  $("barFill").style.width = ((total - seconds_left) / total * 100) + "%";
+  $("sessionCount").textContent = todayCount();
+
+  // highlight the selected mode chip
+  document.querySelectorAll("[data-mode]").forEach(function (chip) {
+    chip.setAttribute("aria-pressed", chip.dataset.mode === mode);
+  });
+}
+
+function stopTimer() {
+  clearInterval(timerId);
+  timerId = null;
+  $("startBtn").textContent = "Start";
+}
+
+// runs every second while the timer is on
+function tick() {
+  seconds_left--;
+  if (seconds_left <= 0) {
+    seconds_left = 0;
+    stopTimer();
+    if (mode === "focus") {
+      addSession();
+      $("status").textContent = "Nice work! Take a break.";
+    } else {
+      $("status").textContent = "Break over. Ready for another round?";
+    }
+  }
+  drawClock();
+}
+
+$("startBtn").addEventListener("click", function () {
+  if (timerId) {                       // already running -> pause
+    stopTimer();
+    $("status").textContent = "Paused.";
+  } else {                             // not running -> start
+    if (seconds_left === 0) seconds_left = MODES[mode] * 60;
+    timerId = setInterval(tick, 1000);
+    $("startBtn").textContent = "Pause";
+    $("status").textContent = mode === "focus" ? "Stay focused..." : "Relax for a bit...";
+  }
+});
+
+$("resetBtn").addEventListener("click", function () {
+  stopTimer();
+  seconds_left = MODES[mode] * 60;
+  $("status").textContent = "Ready when you are.";
+  drawClock();
+});
+
+// switching between focus / short break / long break
+document.querySelectorAll("[data-mode]").forEach(function (chip) {
+  chip.addEventListener("click", function () {
+    stopTimer();
+    mode = chip.dataset.mode;
+    seconds_left = MODES[mode] * 60;
+    $("status").textContent = "Ready when you are.";
+    drawClock();
+  });
+});
+
+drawClock();
+</script>
+</body>
+</html>
