@@ -24,12 +24,13 @@
   </div>
 
   <div class="card">
-    <h2 style="margin-top:0">The six pages</h2>
+    <h2 style="margin-top:0">The pages</h2>
     <ul class="about-list">
       <li><b>Home</b> - add, edit, tick off and delete your tasks.</li>
       <li><b>Calendar</b> - the same tasks, laid out by deadline across the month.</li>
       <li><b>My Why</b> - your own reasons for the work you do, to read when motivation is low.</li>
       <li><b>Planner</b> - a weekly plan with uni and life side by side.</li>
+      <li><b>Habits</b> - a journal-style grid of daily habits with a sleep graph beside it.</li>
       <li><b>Focus</b> - a Pomodoro timer that counts your focused sessions.</li>
       <li><b>About</b> - this page.</li>
     </ul>
@@ -52,7 +53,7 @@
 // ===== About page: just one button that wipes everything saved by this site =====
 document.getElementById("clearBtn").addEventListener("click", function () {
   if (confirm("This deletes all tasks, reasons, planner items and focus counts. Continue?")) {
-    ["tasks", "reasons", "planner", "focusSessions"].forEach(function (key) {
+    ["tasks", "reasons", "planner", "focusSessions", "habits", "habitChecks", "sleepLog"].forEach(function (key) {
       localStorage.removeItem(key);
     });
     alert("All data erased.");

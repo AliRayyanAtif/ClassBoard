@@ -63,7 +63,8 @@ const PAGES = [
   ["calendar.html", "Calendar"],
   ["why.html", "My Why"],
   ["planner.html", "Planner"],
-  ["focus.html", "Focus"],
+  ["habits.html", "Habits"],
+  // ["focus.html", "Focus"],
   ["about.html", "About"]
 ];
 

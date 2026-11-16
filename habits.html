@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Habits - Class Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Habit tracker</h1>
+    <p>Small steps, one day at a time. Your habits and sleep are saved in this browser.</p>
+  </div>
+
+  <section class="card" aria-labelledby="habitsTitle">
+    <div class="habit-toolbar">
+      <div>
+        <h2 id="habitsTitle">Your habits</h2>
+        <p id="monthSummary" class="hint" aria-live="polite"></p>
+      </div>
+      <div class="year-switch">
+        <button class="btn ghost" id="prevYear" type="button" aria-label="Previous year">&larr;</button>
+        <strong id="yearLabel"></strong>
+        <button class="btn ghost" id="nextYear" type="button" aria-label="Next year">&rarr;</button>
+      </div>
+    </div>
+    <div id="monthNav" class="month-nav" aria-label="Choose a month"></div>
+
+    <details class="add habit-add">
+      <summary>+ Add a habit</summary>
+      <form id="habitForm">
+        <label for="habitName">Habit name</label>
+        <div class="habit-form-row">
+          <input id="habitName" maxlength="40" required placeholder="e.g. Go for a walk">
+          <button class="btn" type="submit">Add habit</button>
+        </div>
+      </form>
+    </details>
+
+    <div class="tracker-scroll" tabindex="0" aria-label="Monthly habit and sleep tracker. Scroll horizontally to see every day.">
+      <table class="habit-table">
+        <thead id="trackerHead"></thead>
+        <tbody id="trackerBody"></tbody>
+      </table>
+    </div>
+    <p class="hint">Tick a box when you complete a habit. Enter your sleep in hours (for example, 7.5).</p>
+  </section>
+
+  <section class="card sleep-card" aria-labelledby="sleepTitle">
+    <div class="sleep-heading">
+      <div>
+        <h2 id="sleepTitle">Sleep tracker</h2>
+        <p id="sleepSummary" class="hint"></p>
+      </div>
+      <span class="sleep-goal">Goal: 8 hours</span>
+    </div>
+    <div id="sleepChart" class="sleep-chart"></div>
+  </section>
+</main>
+
+<script src="common.js"></script>
+<script>
+// ===== Habits page: daily habit checkboxes and a monthly sleep chart =====
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const STARTER_HABITS = [
+  { id: "move", name: "Move your body" },
+  { id: "read", name: "Read" },
+  { id: "water", name: "Drink water" }
+];
+const savedTracker = loadData("habitTracker", null);
+let tracker = savedTracker && Array.isArray(savedTracker.habits) && savedTracker.days && typeof savedTracker.days === "object"
+  ? savedTracker
+  : { habits: STARTER_HABITS.slice(), days: {} };
+let selectedYear = new Date().getFullYear();
+let selectedMonth = new Date().getMonth();
+
+function $(id) { return document.getElementById(id); }
+
+function daysInMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function dateKey(day) {
+  return toKey(new Date(selectedYear, selectedMonth, day));
+}
+
+function dayData(day) {
+  const key = dateKey(day);
+  if (!tracker.days[key]) tracker.days[key] = { completed: [], sleep: "" };
+  if (!Array.isArray(tracker.days[key].completed)) tracker.days[key].completed = [];
+  return tracker.days[key];
+}
+
+function saveTracker() {
+  saveData("habitTracker", tracker);
+}
+
+function renderMonths() {
+  $("yearLabel").textContent = selectedYear;
+  $("monthNav").innerHTML = MONTHS.map(function (month, index) {
+    return '<button class="chip" type="button" data-month="' + index + '" aria-pressed="' + (index === selectedMonth) + '">' + month.slice(0, 3) + "</button>";
+  }).join("");
+}
+
+function renderTracker() {
+  const count = daysInMonth(selectedYear, selectedMonth);
+  const todayKey = toKey(new Date());
+  $("trackerHead").innerHTML = "<tr><th scope=\"col\" class=\"habit-label-head\">Habit / sleep</th>" +
+    Array.from({ length: count }, function (_, index) {
+      const day = index + 1;
+      const key = dateKey(day);
+      const weekday = new Date(selectedYear, selectedMonth, day).toLocaleDateString(undefined, { weekday: "narrow" });
+      return '<th scope="col"' + (key === todayKey ? ' class="today-col"' : "") + '><span>' + weekday + '</span><b>' + day + "</b></th>";
+    }).join("") + "</tr>";
+
+  let rows = tracker.habits.map(function (habit) {
+    return '<tr><th scope="row" class="habit-label"><span>' + esc(habit.name) + '</span><button type="button" class="remove-habit" data-remove="' + esc(habit.id) + '" aria-label="Remove ' + esc(habit.name) + '">&times;</button></th>' +
+      Array.from({ length: count }, function (_, index) {
+        const day = index + 1;
+        const complete = dayData(day).completed.includes(habit.id);
+        const key = dateKey(day);
+        return '<td' + (key === todayKey ? ' class="today-col"' : "") + '><input class="habit-check" type="checkbox" data-habit="' + esc(habit.id) + '" data-day="' + day + '" aria-label="' + esc(habit.name) + ", " + MONTHS[selectedMonth] + " " + day + '" ' + (complete ? "checked" : "") + "></td>";
+      }).join("") + "</tr>";
+  }).join("");
+
+  rows += '<tr class="sleep-row"><th scope="row" class="habit-label">Sleep <span class="sleep-unit">(hours)</span></th>' +
+    Array.from({ length: count }, function (_, index) {
+      const day = index + 1;
+      const key = dateKey(day);
+      const hours = dayData(day).sleep;
+      return '<td' + (key === todayKey ? ' class="today-col"' : "") + '><input class="sleep-input" type="number" min="0" max="24" step="0.5" inputmode="decimal" data-sleep="' + day + '" value="' + esc(String(hours)) + '" aria-label="Sleep hours, ' + MONTHS[selectedMonth] + " " + day + '"></td>';
+    }).join("") + "</tr>";
+
+  $("trackerBody").innerHTML = rows;
+  const completionCount = tracker.habits.reduce(function (total, habit) {
+    return total + Array.from({ length: count }, (_, index) => dayData(index + 1).completed.includes(habit.id) ? 1 : 0).reduce((a, b) => a + b, 0);
+  }, 0);
+  const possible = tracker.habits.length * count;
+  const percent = possible ? Math.round(completionCount / possible * 100) : 0;
+  $("monthSummary").textContent = completionCount + " of " + possible + " habit check-ins · " + percent + "% this month";
+  renderSleepChart(count);
+}
+
+function renderSleepChart(count) {
+  const values = Array.from({ length: count }, function (_, index) {
+    const raw = dayData(index + 1).sleep;
+    return raw === "" ? null : Number(raw);
+  });
+  const recorded = values.filter(value => value !== null);
+  const average = recorded.length ? (recorded.reduce((sum, value) => sum + value, 0) / recorded.length).toFixed(1) : null;
+  $("sleepSummary").textContent = average
+    ? "Average: " + average + " hours across " + recorded.length + (recorded.length === 1 ? " night" : " nights")
+    : "Add your sleep hours in the row above to see your monthly trend.";
+
+  const width = 760;
+  const height = 250;
+  const left = 38;
+  const right = 12;
+  const top = 18;
+  const bottom = 32;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+  const chartMax = Math.max(12, Math.min(24, Math.ceil(Math.max(0, ...recorded) / 4) * 4));
+  const x = day => left + (count === 1 ? 0 : (day - 1) / (count - 1) * plotWidth);
+  const y = hours => top + (chartMax - hours) / chartMax * plotHeight;
+  let svg = '<svg viewBox="0 0 ' + width + " " + height + '" role="img" aria-label="' + esc(MONTHS[selectedMonth] + " " + selectedYear + " sleep hours by day") + '">';
+  for (let hours = 0; hours <= chartMax; hours += 4) {
+    const gy = y(hours);
+    svg += '<line class="g-grid" x1="' + left + '" y1="' + gy + '" x2="' + (width - right) + '" y2="' + gy + '"></line>';
+    svg += '<text class="g-label" x="4" y="' + (gy + 4) + '">' + hours + "h</text>";
+  }
+  svg += '<line class="g-goal" x1="' + left + '" y1="' + y(8) + '" x2="' + (width - right) + '" y2="' + y(8) + '"></line>';
+
+  const points = values.map(function (value, index) {
+    return value === null ? null : { day: index + 1, x: x(index + 1), y: y(value), value: value };
+  });
+  let segment = [];
+  function drawSegment() {
+    if (segment.length > 1) {
+      svg += '<polyline class="g-line" points="' + segment.map(point => point.x + "," + point.y).join(" ") + '"></polyline>';
+    }
+    segment = [];
+  }
+  points.forEach(function (point) {
+    if (!point) { drawSegment(); return; }
+    segment.push(point);
+    svg += '<circle class="g-dot" cx="' + point.x + '" cy="' + point.y + '" r="4"><title>Day ' + point.day + ": " + point.value + " hours</title></circle>";
+  });
+  drawSegment();
+
+  for (let day = 1; day <= count; day += 7) {
+    svg += '<text class="g-label" text-anchor="middle" x="' + x(day) + '" y="' + (height - 7) + '">' + day + "</text>";
+  }
+  if ((count - 1) % 7 !== 0) {
+    svg += '<text class="g-label" text-anchor="middle" x="' + x(count) + '" y="' + (height - 7) + '">' + count + "</text>";
+  }
+  svg += "</svg>";
+  $("sleepChart").innerHTML = svg;
+}
+
+function render() {
+  renderMonths();
+  renderTracker();
+}
+
+$("monthNav").addEventListener("click", function (event) {
+  const button = event.target.closest("[data-month]");
+  if (!button) return;
+  selectedMonth = Number(button.dataset.month);
+  render();
+});
+
+$("prevYear").addEventListener("click", function () {
+  selectedYear--;
+  render();
+});
+
+$("nextYear").addEventListener("click", function () {
+  selectedYear++;
+  render();
+});
+
+$("habitForm").addEventListener("submit", function (event) {
+  event.preventDefault();
+  const name = $("habitName").value.trim();
+  if (!name) return;
+  tracker.habits.push({ id: makeId(), name: name });
+  $("habitForm").reset();
+  saveTracker();
+  render();
+});
+
+$("trackerBody").addEventListener("change", function (event) {
+  const checkbox = event.target.closest("[data-habit]");
+  if (checkbox) {
+    const completed = dayData(Number(checkbox.dataset.day)).completed;
+    const index = completed.indexOf(checkbox.dataset.habit);
+    if (checkbox.checked && index === -1) completed.push(checkbox.dataset.habit);
+    if (!checkbox.checked && index !== -1) completed.splice(index, 1);
+    saveTracker();
+    render();
+    return;
+  }
+
+  const sleepInput = event.target.closest("[data-sleep]");
+  if (sleepInput) {
+    if (!sleepInput.validity.valid) {
+      sleepInput.reportValidity();
+      sleepInput.value = dayData(Number(sleepInput.dataset.sleep)).sleep;
+      return;
+    }
+    dayData(Number(sleepInput.dataset.sleep)).sleep = sleepInput.value;
+    saveTracker();
+    renderSleepChart(daysInMonth(selectedYear, selectedMonth));
+  }
+});
+
+$("trackerBody").addEventListener("click", function (event) {
+  const button = event.target.closest("[data-remove]");
+  if (!button) return;
+  const habitId = button.dataset.remove;
+  tracker.habits = tracker.habits.filter(habit => habit.id !== habitId);
+  Object.keys(tracker.days).forEach(function (key) {
+    tracker.days[key].completed = (tracker.days[key].completed || []).filter(id => id !== habitId);
+  });
+  saveTracker();
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
